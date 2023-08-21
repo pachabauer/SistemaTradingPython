@@ -2,6 +2,8 @@ import backtrader as bt
 import pandas as pd
 from Utils import Utils
 
+best_results = {}
+
 class SMACross(bt.Strategy):
     params = (
         ("ticker_name", None),
@@ -41,9 +43,19 @@ class SMACross(bt.Strategy):
             self.buy_price = None
 
     def stop(self):
+        final_value = self.broker.getvalue()
+        ticker = self.params.ticker_name
         print(
-            f"Ticker: {self.params.ticker_name}, Fast Length: {self.params.fast_length}, "
+            f"Ticker: {ticker}, Fast Length: {self.params.fast_length}, "
             f"Slow Length: {self.params.slow_length}, Final Portfolio Value: {self.broker.getvalue()}")
+
+        # Comprueba y actualiza el mejor resultado para este ticker
+        if ticker not in best_results or final_value > best_results[ticker]['value']:
+            best_results[ticker] = {
+                'value': final_value,
+                'fast_length': self.params.fast_length,
+                'slow_length': self.params.slow_length,
+            }
         df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage'])
 
         # Redondeo a 2 decimales
@@ -63,4 +75,7 @@ class SMACross(bt.Strategy):
         df.to_excel(self.params.excel_writer, sheet_name=sheet_name)
         # Utilizo esta función para ajustar el ancho de las columnas automaticamente de Excel.
         Utils.auto_adjust_columns(self.params.excel_writer, sheet_name, df)
+
+        summary_df = pd.DataFrame.from_dict(best_results, orient='index')
+        summary_df.to_excel("Summary.xlsx")
 

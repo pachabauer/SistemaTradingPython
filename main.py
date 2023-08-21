@@ -22,3 +22,4 @@ with pd.ExcelWriter(path) as writer:
         cerebro.optstrategy(SMACross, ticker_name = stock_ticker, fast_length=range(5, 7), slow_length=range(10, 12), excel_writer=writer)
 
         cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
+
