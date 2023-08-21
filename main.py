@@ -7,7 +7,6 @@ names = ["GGAL.BA","MORI.BA"]
 initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
-##Stock.exportToExcel(stocks)
 
 path = "C:/Users/esteb/PycharmProjects/SistemaTrading/Results.xlsx"
 with pd.ExcelWriter(path) as writer:

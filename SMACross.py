@@ -1,5 +1,6 @@
 import backtrader as bt
 import pandas as pd
+from Utils import Utils
 
 class SMACross(bt.Strategy):
     params = (
@@ -44,18 +45,22 @@ class SMACross(bt.Strategy):
             f"Ticker: {self.params.ticker_name}, Fast Length: {self.params.fast_length}, "
             f"Slow Length: {self.params.slow_length}, Final Portfolio Value: {self.broker.getvalue()}")
         df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage'])
+
+        # Redondeo a 2 decimales
+        numeric_cols = ['Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage']
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+
+        # Agregar las comisiones y slippage como columnas adicionales en una fila vacía
+        commission_row = pd.DataFrame([['', '', '', '', '', '', '', f'Buy Commission: {self.buy_commision}',
+                                        f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}']],
+                                      columns=['Date', 'Action', 'Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage',
+                                               'Buy Commission', 'Sell Commission', 'Slippage'])
+        df = pd.concat([commission_row, df], ignore_index=True)
+
         df.set_index('Date', inplace=True)
-        # Agregar una fila al comienzo con las comisiones y el deslizamiento
-        commission_data = {
-            'Date': 'Commissions/Slippage',
-            'Action': '',
-            'Close': 'Buy Commission: ' + str(self.buy_commision),
-            'Fast_MA': 'Sell Commission: ' + str(self.sell_commision),
-            'Slow_MA': 'Slippage: ' + str(self.slippage),
-            'PNL': '',
-            'Percentage': ''
-        }
-        df = pd.concat([pd.DataFrame([commission_data]).set_index('Date'), df], axis=0)
         sheet_name = f"{self.params.ticker_name} {self.params.fast_length}_{self.params.slow_length}"
         df.to_excel(self.params.excel_writer, sheet_name=sheet_name)
+        # Utilizo esta función para ajustar el ancho de las columnas automaticamente de Excel.
+        Utils.auto_adjust_columns(self.params.excel_writer, sheet_name, df)
 
