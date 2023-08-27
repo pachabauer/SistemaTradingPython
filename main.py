@@ -3,7 +3,7 @@ from SMACross import SMACross
 from Stock import Stock
 import pandas as pd
 
-names = ["GGAL.BA"]
+names = ["GGAL.BA", "MORI.BA", "EDN.BA", "YPFD.BA"]
 initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
@@ -23,5 +23,5 @@ with pd.ExcelWriter(path) as writer:
         #cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, name='Trades')
 
         #cerebro.addanalyzer(bt.analyzers.Transactions, name='Transactions')
-        cerebro.optstrategy(SMACross, ticker_name = stock_ticker, fast_length=range(5, 6), slow_length=range(10, 11), excel_writer=writer)
+        cerebro.optstrategy(SMACross, ticker_name = stock_ticker, fast_length=range(5, 8), slow_length=range(10, 13), excel_writer=writer)
         cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos

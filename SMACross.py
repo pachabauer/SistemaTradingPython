@@ -31,19 +31,14 @@ class SMACross(bt.Strategy):
         self.crossover = bt.indicators.CrossOver(self.fast_ma, self.slow_ma)
         self.results = []
         self.buy_price = None
-        self.current_pnl = 10000
+        self.initial_pnl = self.broker.get_cash()
+        self.current_pnl = self.initial_pnl
+        self.net_pnl = 0
         self.pending_order = None
 
     def next(self):
         current_date = self.data.datetime.date(0)
         slippage_value = self.data.open[0] * self.slippage
-        execution_price = 0
-        quantity = 0
-        buy_commission = 0
-        sell_commision = 0
-        gross_pnl = 0
-        gross_profit = 0
-        net_profit = 0
 
         if self.pending_order:
             if self.pending_order == "BUY":
@@ -58,22 +53,25 @@ class SMACross(bt.Strategy):
                 self.log(f"Buy order executed at: {self.data.open[0]}")
 
                 self.results.append([current_date, "Buy", self.fast_ma[0], self.slow_ma[0], self.data.open[0],
-                                     slippage_value, execution_price, quantity, gross_pnl, '',
-                                     buy_commission, 0, '', ""])
+                                     slippage_value, execution_price, quantity, '', gross_pnl, "",
+                                     buy_commission, 0, ''])
 
             elif self.pending_order == "SELL":
                 execution_price = self.data.open[0] - slippage_value
                 sell_commission = execution_price * self.last_buy_quantity * self.sell_commision
                 gross_pnl = self.last_buy_quantity * execution_price
                 gross_profit = gross_pnl - (self.last_buy_quantity * self.last_buy_execution_price)
+                gross_percentage = (execution_price - self.last_buy_execution_price) / self.last_buy_execution_price
                 net_profit = gross_profit - (self.last_buy_commission + sell_commission)
+                self.net_pnl = gross_pnl - (self.last_buy_commission + sell_commission)
+                net_percentage = net_profit / self.current_pnl
 
+                self.current_pnl += gross_profit
                 self.log(f"Sell order executed at: {self.data.open[0]}")
 
                 self.results.append([current_date, "Sell", self.fast_ma[0], self.slow_ma[0], self.data.open[0],
-                                     slippage_value, execution_price, self.last_buy_quantity, gross_pnl, gross_profit,
-                                     0, sell_commission, net_profit,
-                                     (execution_price - self.last_buy_execution_price) / self.last_buy_execution_price])
+                                     slippage_value, execution_price, self.last_buy_quantity, gross_profit, gross_pnl,
+                                     gross_percentage, 0, sell_commission, net_profit, self.net_pnl, net_percentage])
 
                 self.buy_price = None
             self.pending_order = None
@@ -113,34 +111,34 @@ class SMACross(bt.Strategy):
         # Comprueba y actualiza el mejor resultado para este ticker
         if ticker not in best_results or final_value > best_results[ticker]['value']:
             best_results[ticker] = {
-                'value': final_value,
+                'value': self.net_pnl,
                 'fast_length': self.params.fast_length,
                 'slow_length': self.params.slow_length,
             }
         df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage',
-                                                 'Execution Price', 'Quantity', 'Gross PNL', 'Gross Profit',
-                                                 'Buy Commission', 'Sell Commission', 'Net Profit', 'Percentage'])
+                                                 'Execution Price', 'Quantity', 'Gross Profit', 'Gross PNL',
+                                                 'Gross Percentage', 'Buy Commission', 'Sell Commission', 'Net Profit',
+                                                 'Net PNL', 'Net Percentage'])
 
-        # Redondeo a 2 decimales
         numeric_cols = ['Open', 'Fast_MA', 'Slow_MA', 'Slippage', 'Execution Price', 'Buy Commission',
-                        'Sell Commission', 'Gross PNL', 'Gross Profit', 'Net Profit', 'Percentage']
+                        'Sell Commission', 'Gross PNL', 'Gross Profit', 'Net Profit', 'Gross Percentage', 'Net PNL',
+                        'Net Percentage']
+
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce').round(3)
 
-        # Agregar las comisiones y slippage como columnas adicionales en una fila vacía al principio
         commission_row = pd.DataFrame(
-            [['', '', '', '', '', '', f'Initial PNL: {self.current_pnl}', f'Buy Commission: {self.buy_commision}',
-              f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}', '', '', '', '']],
+            [['', '', '', '', '', '', f'Initial PNL: {self.initial_pnl}', f'Buy Commission: {self.buy_commision}',
+              f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}', '', '', '', '', '', '']],
             columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage', 'Execution Price',
-                     'Quantity', 'Gross PNL', 'Gross Profit', 'Buy Commission', 'Sell Commission',
-                     'Net Profit', 'Percentage'])
+                     'Quantity', 'Gross Profit', 'Gross PNL', 'Gross Percentage', 'Buy Commission', 'Sell Commission',
+                     'Net Profit', 'Net PNL', 'Net Percentage'])
         df = pd.concat([commission_row, df], ignore_index=True)
 
         df.set_index('Date', inplace=True)
         sheet_name = f"{self.params.ticker_name} {self.params.fast_length}_{self.params.slow_length}"
         df.to_excel(self.params.excel_writer, sheet_name=sheet_name)
 
-        # Utilizo esta función para ajustar el ancho de las columnas automaticamente de Excel.
         Utils.auto_adjust_columns(self.params.excel_writer, sheet_name, df)
 
         summary_df = pd.DataFrame.from_dict(best_results, orient='index')
