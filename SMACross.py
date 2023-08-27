@@ -16,6 +16,11 @@ class SMACross(bt.Strategy):
     sell_commision = 0.01
     slippage = 0.01
 
+    # Añado atributos adicionales para almacenar valores entre órdenes.
+    last_buy_execution_price = 0
+    last_buy_quantity = 0
+    last_buy_commission = 0
+
     def log(self, txt):
         dt = self.datas[0].datetime.date(0)
         print('%s, %s' % (dt.isoformat(), txt))
@@ -27,27 +32,83 @@ class SMACross(bt.Strategy):
         self.results = []
         self.buy_price = None
         self.current_pnl = 10000
+        self.pending_order = None
 
     def next(self):
         current_date = self.data.datetime.date(0)
-        if self.crossover > 0 and self.buy_price is None:  # Si la MA rápida cruza por encima de la MA lenta
-            self.buy()
-            self.buy_price = self.data.close[0] * (1 + self.buy_commision + self.slippage)
-            self.results.append([current_date, "Buy", self.data.close[0], self.fast_ma[0], self.slow_ma[0], self.current_pnl, ""])
-        elif self.crossover < 0 and self.buy_price:  # Si la MA rápida cruza por debajo de la MA lenta
-            sell_price = self.data.close[0] * (1 - self.sell_commision - self.slippage)
-            percentage = (sell_price / self.buy_price) - 1
-            self.current_pnl *= (1 + percentage)
-            self.sell()
-            self.results.append([current_date, "Sell", self.data.close[0], self.fast_ma[0], self.slow_ma[0], self.current_pnl, percentage])
-            self.buy_price = None
+        slippage_value = self.data.open[0] * self.slippage
+        execution_price = 0
+        quantity = 0
+        buy_commission = 0
+        sell_commision = 0
+        gross_pnl = 0
+        gross_profit = 0
+        net_profit = 0
+
+        if self.pending_order:
+            if self.pending_order == "BUY":
+                execution_price = self.data.open[0] + slippage_value
+                quantity = round(self.current_pnl / execution_price)
+                buy_commission = execution_price * quantity * self.buy_commision
+                gross_pnl = quantity * execution_price
+                self.last_buy_execution_price = execution_price
+                self.last_buy_quantity = quantity
+                self.last_buy_commission = buy_commission
+
+                self.log(f"Buy order executed at: {self.data.open[0]}")
+
+                self.results.append([current_date, "Buy", self.fast_ma[0], self.slow_ma[0], self.data.open[0],
+                                     slippage_value, execution_price, quantity, gross_pnl, '',
+                                     buy_commission, 0, '', ""])
+
+            elif self.pending_order == "SELL":
+                execution_price = self.data.open[0] - slippage_value
+                sell_commission = execution_price * self.last_buy_quantity * self.sell_commision
+                gross_pnl = self.last_buy_quantity * execution_price
+                gross_profit = gross_pnl - (self.last_buy_quantity * self.last_buy_execution_price)
+                net_profit = gross_profit - (self.last_buy_commission + sell_commission)
+
+                self.log(f"Sell order executed at: {self.data.open[0]}")
+
+                self.results.append([current_date, "Sell", self.fast_ma[0], self.slow_ma[0], self.data.open[0],
+                                     slippage_value, execution_price, self.last_buy_quantity, gross_pnl, gross_profit,
+                                     0, sell_commission, net_profit,
+                                     (execution_price - self.last_buy_execution_price) / self.last_buy_execution_price])
+
+                self.buy_price = None
+            self.pending_order = None
+
+        if self.crossover > 0 and not self.position:
+            self.buy(exectype=bt.Order.Market)
+            self.buy_price = self.data.open[0]
+            self.pending_order = "BUY"
+        elif self.crossover < 0 and self.position:
+            self.sell(exectype=bt.Order.Market)
+            self.pending_order = "SELL"
+
+    def notify_order(self, order):
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(
+                    f"BUY CONFIRMED, Price: {order.executed.price}, Cost: {order.executed.value}, Commission: {order.executed.comm}")
+            elif order.issell():
+                self.log(
+                    f"SELL CONFIRMED, Price: {order.executed.price}, Cost: {order.executed.value}, Commission: {order.executed.comm}")
+            self.bar_executed = len(self)
+
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log("Order Canceled/Margin/Rejected")
+
+    def notify_trade(self, trade):
+        if trade.isclosed:
+            self.log(f"OPERATION PROFIT, GROSS: {trade.pnl}, NET: {trade.pnlcomm}")
 
     def stop(self):
         final_value = self.broker.getvalue()
         ticker = self.params.ticker_name
         print(
             f"Ticker: {ticker}, Fast Length: {self.params.fast_length}, "
-            f"Slow Length: {self.params.slow_length}, Final Portfolio Value: {self.broker.getvalue()}")
+            f"Slow Length: {self.params.slow_length}, Final Portfolio Value: {final_value}")
 
         # Comprueba y actualiza el mejor resultado para este ticker
         if ticker not in best_results or final_value > best_results[ticker]['value']:
@@ -56,26 +117,33 @@ class SMACross(bt.Strategy):
                 'fast_length': self.params.fast_length,
                 'slow_length': self.params.slow_length,
             }
-        df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage'])
+        df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage',
+                                                 'Execution Price', 'Quantity', 'Gross PNL', 'Gross Profit',
+                                                 'Buy Commission', 'Sell Commission', 'Net Profit', 'Percentage'])
 
         # Redondeo a 2 decimales
-        numeric_cols = ['Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage']
+        numeric_cols = ['Open', 'Fast_MA', 'Slow_MA', 'Slippage', 'Execution Price', 'Buy Commission',
+                        'Sell Commission', 'Gross PNL', 'Gross Profit', 'Net Profit', 'Percentage']
         for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(2)
+            df[col] = pd.to_numeric(df[col], errors='coerce').round(3)
 
-        # Agregar las comisiones y slippage como columnas adicionales en una fila vacía
-        commission_row = pd.DataFrame([['', '', '', '', '', '', '', f'Buy Commission: {self.buy_commision}',
-                                        f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}']],
-                                      columns=['Date', 'Action', 'Close', 'Fast_MA', 'Slow_MA', 'PNL', 'Percentage',
-                                               'Buy Commission', 'Sell Commission', 'Slippage'])
+        # Agregar las comisiones y slippage como columnas adicionales en una fila vacía al principio
+        commission_row = pd.DataFrame(
+            [['', '', '', '', '', '', f'Initial PNL: {self.current_pnl}', f'Buy Commission: {self.buy_commision}',
+              f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}', '', '', '', '']],
+            columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage', 'Execution Price',
+                     'Quantity', 'Gross PNL', 'Gross Profit', 'Buy Commission', 'Sell Commission',
+                     'Net Profit', 'Percentage'])
         df = pd.concat([commission_row, df], ignore_index=True)
 
         df.set_index('Date', inplace=True)
         sheet_name = f"{self.params.ticker_name} {self.params.fast_length}_{self.params.slow_length}"
         df.to_excel(self.params.excel_writer, sheet_name=sheet_name)
+
         # Utilizo esta función para ajustar el ancho de las columnas automaticamente de Excel.
         Utils.auto_adjust_columns(self.params.excel_writer, sheet_name, df)
 
         summary_df = pd.DataFrame.from_dict(best_results, orient='index')
         summary_df.to_excel("Summary.xlsx")
+
 
