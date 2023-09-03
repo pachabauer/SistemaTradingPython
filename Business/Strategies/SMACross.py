@@ -1,64 +1,24 @@
 import backtrader as bt
 import pandas as pd
+
+from Business.Strategies.BaseStrategy import BaseStrategy
+from Data.Exporters.ExcelExporter import ExcelExporter
 from Utils import Utils
 
 best_results = {}
 
 
-class SMACross(bt.Strategy):
+class SMACross(BaseStrategy):
     params = (
-        ("ticker_name", None),
-        ("fast_length", 10),
-        ("slow_length", 50),
-        ("excel_writer", None),
-        ("initial_date", None),
+        ("fast_length", 0),
+        ("slow_length", 0),
     )
 
-    buy_commision = 0.01
-    sell_commision = 0.01
-    slippage = 0.01
-
-    # Añado atributos adicionales para almacenar valores entre órdenes.
-    last_buy_execution_price = 0
-    last_buy_quantity = 0
-    last_buy_commission = 0
-
-    def log(self, txt):
-        dt = self.datas[0].datetime.date(0)
-        print('%s, %s' % (dt.isoformat(), txt))
-
     def __init__(self):
+        super().__init__()
         self.fast_ma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.fast_length)
         self.slow_ma = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.slow_length)
         self.crossover = bt.indicators.CrossOver(self.fast_ma, self.slow_ma)
-        self.results = []
-        self.buy_price = None
-        self.initial_pnl = self.broker.get_cash()
-        self.current_pnl = self.initial_pnl
-        self.net_pnl = 0
-        self.pending_order = None
-        self.total_trades = 0
-        self.winning_trades = 0
-        self.losing_trades = 0
-        self.total_win_profit = 0
-        self.total_loss_profit = 0
-        self.max_drawdown = 0
-        self.max_drawdown_percentage = 0
-        self.max_winning_percentage = 0
-        self.total_win_percentage = 0
-        self.total_loss_percentage = 0
-        self.max_winning_trade = 0
-        self.current_consecutive_wins = 0
-        self.current_consecutive_losses = 0
-        self.max_consecutive_wins = 0
-        self.max_consecutive_losses = 0
-        self.prev_trade_date = None
-        self.trade_durations = []
-
-        if self.params.initial_date:
-            self.initial_date = self.params.initial_date  # Usa la fecha inicial si se proporciona como parámetro
-        else:
-            self.initial_date = self.data.datetime.date(0)  # De lo contrario, usa la fecha del primer dato
 
     def next(self):
         current_date = self.data.datetime.date(0)
@@ -138,23 +98,6 @@ class SMACross(bt.Strategy):
             self.sell(exectype=bt.Order.Market)
             self.pending_order = "SELL"
 
-    def notify_order(self, order):
-        if order.status in [order.Completed]:
-            if order.isbuy():
-                self.log(
-                    f"BUY CONFIRMED, Price: {order.executed.price}, Cost: {order.executed.value}, Commission: {order.executed.comm}")
-            elif order.issell():
-                self.log(
-                    f"SELL CONFIRMED, Price: {order.executed.price}, Cost: {order.executed.value}, Commission: {order.executed.comm}")
-            self.bar_executed = len(self)
-
-        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log("Order Canceled/Margin/Rejected")
-
-    def notify_trade(self, trade):
-        if trade.isclosed:
-            self.log(f"OPERATION PROFIT, GROSS: {trade.pnl}, NET: {trade.pnlcomm}")
-
     def stop(self):
         final_value = self.net_pnl
         ticker = self.params.ticker_name
@@ -194,46 +137,7 @@ class SMACross(bt.Strategy):
                 'consecutive_lossers': self.max_consecutive_losses,
                 'avg_trade_Q_days': avg_trade_duration
             }
-        df = pd.DataFrame(self.results, columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage',
-                                                 'Execution Price', 'Quantity', 'Gross Profit', 'Gross PNL',
-                                                 'Gross Percentage', 'Buy Commission', 'Sell Commission', 'Net Profit',
-                                                 'Net PNL', 'Net Percentage'])
 
-        numeric_cols = ['Open', 'Fast_MA', 'Slow_MA', 'Slippage', 'Execution Price', 'Buy Commission',
-                        'Sell Commission', 'Gross PNL', 'Gross Profit', 'Net Profit', 'Gross Percentage', 'Net PNL',
-                        'Net Percentage']
-
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce').round(3)
-
-        commission_row = pd.DataFrame(
-            [['', '', '', '', '', '', f'Initial PNL: {self.initial_pnl}', f'Buy Commission: {self.buy_commision}',
-              f'Sell Commission: {self.sell_commision}', f'Slippage: {self.slippage}', '', '', '', '', '', '']],
-            columns=['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage', 'Execution Price',
-                     'Quantity', 'Gross Profit', 'Gross PNL', 'Gross Percentage', 'Buy Commission', 'Sell Commission',
-                     'Net Profit', 'Net PNL', 'Net Percentage'])
-        df = pd.concat([commission_row, df], ignore_index=True)
-
-        df.set_index('Date', inplace=True)
-        sheet_name = f"{self.params.ticker_name} {self.params.fast_length}_{self.params.slow_length}"
-        df.to_excel(self.params.excel_writer, sheet_name=sheet_name)
-
-        Utils.auto_adjust_columns(self.params.excel_writer, sheet_name, df)
-
-        summary_df = pd.DataFrame.from_dict(best_results, orient='index')
-        column_order = ['initial_pnl', 'final_pnl', 'initial_date', 'finish_date', 'fast_length', 'slow_length',
-                        'total_trades', 'winning_trades', 'losing_trades', '% winning_trades', '% losing_trades',
-                        'max_losing_%_PNL', 'avg_win_profit', 'avg_win_profit_%',
-                        'avg_loss_profit', 'avg_loss_profit_%', 'max_drawdown', 'max_winning_trade',
-                        '% max_winning_trade', 'consecutive_winners', 'consecutive_lossers',
-                        'avg_trade_Q_days']
-
-        numeric_summary_cols = ['% winning_trades', '% losing_trades', 'max_drawdown', 'max_losing_%_PNL',
-                                'avg_win_profit', 'avg_win_profit_%', 'avg_loss_profit_%',
-                                'avg_loss_profit', 'max_winning_trade']
-
-        for col in numeric_summary_cols:
-            summary_df[col] = pd.to_numeric(summary_df[col], errors='coerce').round(3)
-
-        summary_df = summary_df[column_order]
-        summary_df.to_excel("Summary.xlsx")
+        excel_exporter = ExcelExporter(self)
+        excel_exporter.export(self.results, best_results, main_extra_columns=[],
+                              summary_extra_columns=['fast_length', 'slow_length'])
