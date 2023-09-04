@@ -1,6 +1,6 @@
 import backtrader as bt
 from Business.Strategies.SMACross import SMACross
-from Stock import Stock
+from Data.Sources.Stock import Stock
 import pandas as pd
 
 names = ["GGAL.BA", "MORI.BA", "EDN.BA", "YPFD.BA"]
@@ -8,7 +8,7 @@ initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
 
-path = "C:/Users/esteb/PycharmProjects/SistemaTrading/Results.xlsx"
+path = "C:/Users/esteb/PycharmProjects/SistemaTrading/Resources/Results.xlsx"
 with pd.ExcelWriter(path) as writer:
     for stock_ticker, stock_dataframe in zip(stocks.names, stocks.dataframes):
         data = bt.feeds.PandasData(dataname=stock_dataframe)

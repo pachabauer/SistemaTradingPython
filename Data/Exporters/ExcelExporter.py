@@ -1,9 +1,31 @@
 import pandas as pd
-from Utils import Utils
+from Infrastructure.Utils.Utils import Utils
 
 class ExcelExporter:
     def __init__(self, strategy_instance):
         self.strategy = strategy_instance
+        self.setup_columns_based_on_strategy()
+
+    def setup_columns_based_on_strategy(self):
+        """ Configura las columnas basadas en la estrategia """
+        # Estas son las columnas comunes a todas las estrategias
+        self.base_columns = ['Date', 'Action', 'Open', 'Slippage',
+                             'Execution Price', 'Quantity', 'Gross Profit', 'Gross PNL',
+                             'Gross Percentage', 'Buy Commission', 'Sell Commission', 'Net Profit',
+                             'Net PNL', 'Net Percentage']
+
+        strategy_specific_columns = []
+
+        if isinstance(self.strategy, type(self.strategy)):
+            strategy_specific_columns = ['Fast_MA', 'Slow_MA']
+
+        # Inserta las columnas específicas de la estrategia justo después de 'Action'
+        for col in reversed(strategy_specific_columns):
+            self.base_columns.insert(self.base_columns.index('Action') + 1, col)
+
+        # Aquí se puede agregar más condicionales para otras estrategias y sus respectivas columnas.
+        # elif isinstance(self.strategy, OtraEstrategia):
+        #     self.base_columns.extend(['OtraColumna1', 'OtraColumna2'])
 
     def numeric_formatter(self, df, numeric_cols):
         for col in numeric_cols:
@@ -11,19 +33,13 @@ class ExcelExporter:
         return df
 
     def export(self, results, best_results, main_extra_columns=None, summary_extra_columns=None):
-        # Columnas básicas para el DataFrame principal
-        base_columns = ['Date', 'Action', 'Fast_MA', 'Slow_MA', 'Open', 'Slippage',
-                        'Execution Price', 'Quantity', 'Gross Profit', 'Gross PNL',
-                        'Gross Percentage', 'Buy Commission', 'Sell Commission', 'Net Profit',
-                        'Net PNL', 'Net Percentage']
-
         # Agregar columnas adicionales si se especifican
         if main_extra_columns:
             for col in main_extra_columns:
-                if col not in base_columns:
-                    base_columns.append(col)
+                if col not in self.base_columns:
+                    self.base_columns.append(col)
 
-        df = pd.DataFrame(results, columns=base_columns)
+        df = pd.DataFrame(results, columns=self.base_columns)
 
         numeric_cols = ['Open', 'Fast_MA', 'Slow_MA', 'Slippage', 'Execution Price', 'Buy Commission',
                         'Sell Commission', 'Gross PNL', 'Gross Profit', 'Net Profit', 'Gross Percentage', 'Net PNL',
@@ -63,5 +79,5 @@ class ExcelExporter:
                     base_summary_columns.insert(0, col)
 
         summary_df = summary_df[base_summary_columns]
-        summary_df.to_excel("Summary.xlsx")
+        summary_df.to_excel("C:/Users/esteb/PycharmProjects/SistemaTrading/Resources/Summary.xlsx")
 

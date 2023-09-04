@@ -1,9 +1,6 @@
 import backtrader as bt
-import pandas as pd
-
 from Business.Strategies.BaseStrategy import BaseStrategy
 from Data.Exporters.ExcelExporter import ExcelExporter
-from Utils import Utils
 
 best_results = {}
 
