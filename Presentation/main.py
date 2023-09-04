@@ -3,7 +3,7 @@ from Business.Strategies.SMACross import SMACross
 from Data.Sources.Stock import Stock
 import pandas as pd
 
-names = ["GGAL.BA", "MORI.BA", "EDN.BA", "YPFD.BA"]
+names = ["SEMI.BA"]
 initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
