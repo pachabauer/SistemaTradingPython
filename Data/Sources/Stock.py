@@ -31,7 +31,7 @@ class Stock:
             stock = yf.download(name, initialDate, finishDate).dropna(inplace=False)
         return stock
 
-    # def exportToExcel(self, path="C:/Users/esteb/PycharmProjects/SistemaTrading/Stocks.xlsx"):
-    #     with pd.ExcelWriter(path) as writer:
-    #         for df, name in zip(self.dataframes, self.names):
-    #             df.to_excel(writer, sheet_name=name)
+    def exportToExcel(self, path="C:/Users/esteb/PycharmProjects/SistemaTrading/Resources/Stocks.xlsx"):
+        with pd.ExcelWriter(path) as writer:
+            for df, name in zip(self.dataframes, self.names):
+                df.to_excel(writer, sheet_name=name)
