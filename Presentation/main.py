@@ -1,4 +1,6 @@
 import backtrader as bt
+
+from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.SMACross import SMACross
 from Data.Sources.Stock import Stock
 import pandas as pd
@@ -26,4 +28,7 @@ with pd.ExcelWriter(path) as writer:
         # cerebro.addanalyzer(bt.analyzers.Transactions, name='Transactions')
         cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(5, 10), slow_length=range(15, 30),
                             excel_writer=writer, initial_date=initialDate)
-        cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
+        try:
+            cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
+        except InsufficientCapitalException as e:
+            print(e)

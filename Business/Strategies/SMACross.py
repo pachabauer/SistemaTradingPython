@@ -1,4 +1,6 @@
 import backtrader as bt
+
+from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.BaseStrategy import BaseStrategy
 from Data.Exporters.ExcelExporter import ExcelExporter
 
@@ -26,10 +28,7 @@ class SMACross(BaseStrategy):
                 execution_price = self.data.open[0] + slippage_value
                 quantity = round(self.current_pnl / execution_price)
                 if quantity == 0:
-                    raise ValueError(f"El capital es insuficiente para realizar esta estrategia en su totalidad. "
-                                     f"Cada acción cuesta {execution_price} y necesita al menos 10 de ellas "
-                                     f"para la estrategia, por lo cual necesita un capital inicial de: "
-                                     f" {execution_price * 10}")
+                    raise InsufficientCapitalException()
 
                 buy_commission = execution_price * quantity * self.buy_commision
                 gross_pnl = quantity * execution_price
