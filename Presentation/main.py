@@ -26,9 +26,12 @@ with pd.ExcelWriter(path) as writer:
         # cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, name='Trades')
 
         # cerebro.addanalyzer(bt.analyzers.Transactions, name='Transactions')
-        cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(5, 10), slow_length=range(15, 30),
+        cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(5, 8), slow_length=range(15, 18),
                             excel_writer=writer, initial_date=initialDate)
         try:
             cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
         except InsufficientCapitalException as e:
             print(e)
+
+for ticker in names:
+    SMACross.show_best_graphs(ticker)
