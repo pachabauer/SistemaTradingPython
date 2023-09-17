@@ -2,6 +2,8 @@ import backtrader as bt
 
 from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.SMACross import SMACross
+from Data.Graphs.NetPercentageEvolutionGraph import NetPercentageEvolutionGraph
+from Data.Graphs.PNLEvolutionGraph import PNLEvolutionGraph
 from Data.Sources.Stock import Stock
 import pandas as pd
 
@@ -34,4 +36,9 @@ with pd.ExcelWriter(path) as writer:
             print(e)
 
 for ticker in names:
-    SMACross.show_best_graphs(ticker)
+    pnl_data = SMACross.get_best_pnl_data(ticker)
+    percentage_data = SMACross.get_best_net_percentage_data(ticker)
+    pnl_graph = PNLEvolutionGraph(pnl_data, ticker)
+    pnl_graph.generate_graph()
+    percentage_graph = NetPercentageEvolutionGraph(percentage_data, ticker)
+    percentage_graph.generate_graph()

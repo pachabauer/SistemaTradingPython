@@ -1,14 +1,8 @@
 import backtrader as bt
-import pandas as pd
-import seaborn as sns
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.dates import MonthLocator, DateFormatter
+
 from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.BaseStrategy import BaseStrategy
 from Data.Exporters.ExcelExporter import ExcelExporter
-
-best_results = {}
 
 
 class SMACross(BaseStrategy):
@@ -17,6 +11,7 @@ class SMACross(BaseStrategy):
         ("slow_length", 0),
     )
 
+    best_results = {}
     best_pnl_evolution = []
     best_net_percentage_evolution = []
 
@@ -126,8 +121,8 @@ class SMACross(BaseStrategy):
         avg_trade_duration = sum(self.trade_durations) / len(self.trade_durations) if self.trade_durations else 0
 
         # Comprueba y actualiza el mejor resultado para este ticker
-        if ticker not in best_results or final_value > best_results[ticker]['final_pnl']:
-            best_results[ticker] = {
+        if ticker not in self.best_results or final_value > self.best_results[ticker]['final_pnl']:
+            self.best_results[ticker] = {
                 'initial_pnl': self.initial_pnl,
                 'final_pnl': self.net_pnl,
                 'fast_length': self.params.fast_length,
@@ -155,87 +150,13 @@ class SMACross(BaseStrategy):
             }
 
         excel_exporter = ExcelExporter(self)
-        excel_exporter.export(self.results, best_results, main_extra_columns=[],
+        excel_exporter.export(self.results, self.best_results, main_extra_columns=[],
                               summary_extra_columns=['fast_length', 'slow_length'])
 
-    def show_best_graphs(ticker):
-        best_pnl_data = best_results[ticker].get('best_pnl_evolution', [])
-        best_net_percentage_data = best_results[ticker].get('best_net_percentage_evolution', [])
+    @classmethod
+    def get_best_pnl_data(cls, ticker):
+        return cls.best_results[ticker].get('best_pnl_evolution', [])
 
-        if not best_pnl_data or not best_net_percentage_data:
-            print(f"No best results found for {ticker}")
-            return
-
-        pnl_df = pd.DataFrame(best_pnl_data)
-        percentage_df = pd.DataFrame(best_net_percentage_data)
-
-        # Gráfico para pnl_evolution
-        plt.figure(1, figsize=(10, 6))
-        sns.set_style("whitegrid")
-
-        # Convertimos los valores a millones y ajustamos la precisión a 2 decimales
-        pnl_df['net_pnl'] = (pnl_df['net_pnl'] / 1000000).round(2)
-
-        sns.lineplot(x='current_date', y='net_pnl', data=pnl_df, linewidth=2.5, color='b')
-        plt.title(f'EVOLUCIÓN DE NET PNL PARA {ticker}', fontsize=16, fontweight='bold')
-        plt.ylabel('Net PNL (en millones)', fontsize=12)
-        plt.xlabel('Fecha', fontsize=12)
-
-        # Configuración de las etiquetas del eje x para que aparezcan cada 3 meses
-        ax = plt.gca()
-        ax.xaxis.set_major_locator(MonthLocator(interval=3))
-        ax.xaxis.set_major_formatter(DateFormatter('%Y-%m'))
-
-        # Rotar las etiquetas del eje x para una mejor visibilidad
-        plt.xticks(rotation=45)
-
-        plt.tight_layout()
-        plt.savefig(f'{ticker}_best_pnl_evolution.png')
-        plt.show(block=False)
-
-        # Gráfico para net_percentage_evolution
-        plt.figure(2, figsize=(10, 6))
-        sns.set_style("whitegrid")
-
-        # Convertimos los valores a porcentaje
-        percentage_df['net_percentage'] = (percentage_df['net_percentage'] * 100).round(2)
-
-        # Calcular los límites para el eje x
-        x_min = int(percentage_df['net_percentage'].min()) - 5  # Dando un margen adicional de 5%
-        x_max = int(percentage_df['net_percentage'].max()) + 5  # Dando un margen adicional de 5%
-
-        # Crear bins de 5%
-        bins = range(int(x_min), int(x_max) + 5, 5)
-
-        # Crear histograma usando numpy para que podamos colorear condicionalmente después
-        hist_data, edges = np.histogram(percentage_df['net_percentage'], bins=bins)
-
-        # Determinar colores basados en el punto medio de cada bin
-        bin_mids = [(edges[i] + edges[i + 1]) / 2 for i in range(len(edges) - 1)]
-
-        # Crear una lista de colores condicionales
-        colors = []
-        for x in bin_mids:
-            if x < 0:
-                colors.append(plt.cm.Reds(np.interp(-x, [0, abs(x_min)], [0.5, 1])))
-            else:
-                colors.append(plt.cm.Greens(np.interp(x, [0, x_max], [0.5, 1])))
-
-        # Dibujar las barras manualmente con los colores condicionales
-        for i in range(len(hist_data)):
-            plt.bar(bin_mids[i], hist_data[i], width=5, color=colors[i], edgecolor='black')
-
-        plt.title(f'DISTRIBUCIÓN DE NET PERCENTAGE PARA {ticker}', fontsize=16, fontweight='bold')
-        plt.xlabel('Rendimiento (%)', fontsize=12)
-        plt.ylabel('Cantidad de trades', fontsize=12)
-
-        # Configurando las etiquetas para el eje x con incrementos de 5%
-        plt.xticks(range(x_min, x_max, 5))
-
-        # Configurando los límites para el eje x
-        plt.xlim(x_min, x_max)
-
-        plt.tight_layout()
-        plt.savefig(f'{ticker}_best_net_percentage_evolution.png')
-        plt.show(block=False)
-
+    @classmethod
+    def get_best_net_percentage_data(cls, ticker):
+        return cls.best_results[ticker].get('best_net_percentage_evolution', [])
