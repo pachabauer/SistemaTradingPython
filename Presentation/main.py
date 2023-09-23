@@ -2,12 +2,13 @@ import backtrader as bt
 
 from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.SMACross import SMACross
+from Data.Graphs.CorrelationGraph import CorrelationGraph
 from Data.Graphs.NetPercentageEvolutionGraph import NetPercentageEvolutionGraph
 from Data.Graphs.PNLEvolutionGraph import PNLEvolutionGraph
 from Data.Sources.Stock import Stock
 import pandas as pd
 
-names = ["M.BA"]
+names = ["BABA.BA", "BYMA.BA", "PAMP.BA", "YPFD.BA"]
 initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
@@ -28,7 +29,7 @@ with pd.ExcelWriter(path) as writer:
         # cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, name='Trades')
 
         # cerebro.addanalyzer(bt.analyzers.Transactions, name='Transactions')
-        cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(5, 8), slow_length=range(15, 18),
+        cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(7, 8), slow_length=range(20, 21),
                             excel_writer=writer, initial_date=initialDate)
         try:
             cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
@@ -42,3 +43,6 @@ for ticker in names:
     pnl_graph.generate_graph()
     percentage_graph = NetPercentageEvolutionGraph(percentage_data, ticker)
     percentage_graph.generate_graph()
+
+correlation_graph = CorrelationGraph(stocks)
+correlation_graph.generate_graph()

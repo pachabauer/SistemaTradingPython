@@ -13,7 +13,7 @@ class PNLEvolutionGraph:
         # ... (código para generar el gráfico PNLEvolution usando el parámetro 'data')
 
         # Gráfico para pnl_evolution
-        plt.figure(1, figsize=(10, 6))
+        plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
 
         # Convertimos los valores a millones y ajustamos la precisión a 2 decimales
@@ -36,3 +36,4 @@ class PNLEvolutionGraph:
         plt.tight_layout()
         plt.savefig(f'{self.ticker}_best_pnl_evolution.png')
         plt.show(block=False)
+        plt.close()

@@ -12,7 +12,7 @@ class NetPercentageEvolutionGraph:
     def generate_graph(self):
         # ... (código para generar el gráfico NetPercentageEvolution usando el parámetro 'data')
         # Gráfico para net_percentage_evolution
-        plt.figure(2, figsize=(10, 6))
+        plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
 
         # Convertimos los valores a porcentaje
@@ -57,3 +57,4 @@ class NetPercentageEvolutionGraph:
         plt.tight_layout()
         plt.savefig(f'{self.ticker}_best_net_percentage_evolution.png')
         plt.show(block=False)
+        plt.close()
