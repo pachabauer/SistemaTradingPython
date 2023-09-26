@@ -17,9 +17,13 @@ class CorrelationGraph:
         # Calcular la matriz de correlación
         correlation_matrix = consolidated_df.corr()
 
+        # Definir el tamaño de la figura en función del número de tickers
+        num_tickers = len(self.stocks.names)
+        figsize = (num_tickers, num_tickers)
+
         # Graficar el heatmap
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', vmin=-1, vmax=1, center=0, linewidths=.5, cbar_kws={"shrink": 0.75})
+        plt.figure(figsize=figsize)
+        sns.heatmap(correlation_matrix, annot=True, cmap='icefire', vmin=-1, vmax=1, center=0, linewidths=.25, cbar_kws={"shrink": 0.75})
         plt.title('Correlación entre tickers', fontsize=16, fontweight='bold')
         plt.tight_layout()
         plt.savefig('correlation_heatmap.png')

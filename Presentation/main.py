@@ -1,14 +1,17 @@
 import backtrader as bt
+import pandas as pd
 
 from Business.Exceptions.InsufficientCapitalException import InsufficientCapitalException
 from Business.Strategies.SMACross import SMACross
+
 from Data.Graphs.CorrelationGraph import CorrelationGraph
 from Data.Graphs.NetPercentageEvolutionGraph import NetPercentageEvolutionGraph
 from Data.Graphs.PNLEvolutionGraph import PNLEvolutionGraph
 from Data.Sources.Stock import Stock
-import pandas as pd
+from Data.Stocks_by_index.Merval_lider.Merval_lider import Merval_lider
+from Data.Stocks_by_index.Merval_general.Merval_general import Merval_general
 
-names = ["BABA.BA", "BYMA.BA", "PAMP.BA", "YPFD.BA"]
+names = Merval_general.getMervalGeneral()
 initialDate = "2019-08-13"
 
 stocks = Stock(names, initialDate)
