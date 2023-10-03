@@ -10,9 +10,10 @@ from Data.Graphs.PNLEvolutionGraph import PNLEvolutionGraph
 from Data.Sources.Stock import Stock
 from Data.Stocks_by_index.Merval_lider.Merval_lider import Merval_lider
 from Data.Stocks_by_index.Merval_general.Merval_general import Merval_general
+from Data.Stocks_by_index.Merval_cedears.Merval_cedears import Merval_cedears
 
-names = Merval_general.getMervalGeneral()
-initialDate = "2019-08-13"
+names = Merval_cedears.getMervalCedears()
+initialDate = "2022-08-13"
 
 stocks = Stock(names, initialDate)
 stocks.exportToExcel()
@@ -35,7 +36,7 @@ with pd.ExcelWriter(path) as writer:
         cerebro.optstrategy(SMACross, ticker_name=stock_ticker, fast_length=range(7, 8), slow_length=range(20, 21),
                             excel_writer=writer, initial_date=initialDate)
         try:
-            cerebro.run(maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
+            cerebro.run(runonce=False, maxcpus=1)  # maxcpus=1 para evitar problemas con multiprocesamiento en algunos entornos
         except InsufficientCapitalException as e:
             print(e)
 
